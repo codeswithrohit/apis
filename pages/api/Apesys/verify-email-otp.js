@@ -1,8 +1,21 @@
-// pages/api/verify-email-otp.js
+// pages/api/Apesys/verify-email-otp.js (on the live server)
 
 import { firebase } from '../../../Firebase/config'; // Adjust path as needed
 
 export default async function handler(req, res) {
+    // -----------------------------------------------------
+    // 🌟 CORS FIX: Allow access from your frontend domain
+    // -----------------------------------------------------
+    res.setHeader('Access-Control-Allow-Origin', '*'); 
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Handle pre-flight request
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    // -----------------------------------------------------
+    
     if (req.method !== 'POST') {
         return res.status(405).json({ message: 'Method Not Allowed' });
     }
@@ -25,8 +38,11 @@ export default async function handler(req, res) {
         const storedData = doc.data();
         const now = new Date();
         
+        // Firestore timestamps usually need to be converted to Date objects
+        const expiryDate = storedData.expiresAt.toDate(); 
+        
         // Check for expiration
-        if (storedData.expiresAt.toDate() < now) {
+        if (expiryDate < now) {
             await docRef.delete(); // Clean up expired OTP
             return res.status(400).json({ message: 'OTP has expired. Please request a new OTP.' });
         }

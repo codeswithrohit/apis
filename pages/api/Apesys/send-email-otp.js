@@ -1,75 +1,27 @@
-// pages/api/send-email-otp.js
+// pages/api/Apesys/send-email-otp.js (on the live server)
 
 import nodemailer from 'nodemailer';
-import { firebase } from '../../../Firebase/config'; // Adjust path as needed
+// Ensure this import points to your server-side Firebase setup (preferably Admin SDK)
+// Since the path is relative, ensure your folder structure on the API server matches:
+import { firebase } from '../../../Firebase/config'; 
 
-// 1. Initialize Nodemailer Transporter
-// Use environment variables for security!
+// 🚨 Security Note: Using hardcoded credentials is risky. Use process.env variables.
+// If your live server uses a .env file, you should use process.env.EMAIL_USER/PASS here.
+const EMAIL_USER = 'apesysapp@gmail.com'; 
+const EMAIL_PASS = 'lndesebasvhvuupr';
+
 const transporter = nodemailer.createTransport({
-  service: 'gmail', // or 'smtp.sendgrid.net', etc.
+  service: 'gmail',
   auth: {
-    user: 'apesysapp@gmail.com', // e.g., 'youremail@gmail.com'
-    pass: 'lndesebasvhvuupr', // e.g., 'your_app_password'
+    user: EMAIL_USER,
+    pass: EMAIL_PASS,
   },
 });
 
-// 2. Generate OTP
 const generateOtp = () => {
   return Math.floor(100000 + Math.random() * 900000).toString();
 };
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ message: 'Method Not Allowed' });
-  }
-
-  const { email } = req.body; 
-
-  if (!email) {
-    // If this log fires, the client didn't send the email field correctly
-    console.error('Email field is missing from request body.');
-    return res.status(400).json({ message: 'Email is required' });
-  }
-  //
-
-  if (!email) {
-    return res.status(400).json({ message: 'Email is required' });
-  }
-
-  try {
-    const otp = generateOtp();
-    const firestore = firebase.firestore();
-    const now = new Date();
-    const expirationTime = new Date(now.getTime() + 10 * 60000); // 10 minutes expiry
-
-    // 3. Store OTP securely in Firestore with an expiration time
-    await firestore.collection('emailOtps').doc(email).set({
-      otp: otp,
-      createdAt: now,
-      expiresAt: expirationTime,
-    });
-
-    // 4. Send Email using the BEST TEMPLATE (Simple HTML Example)
-    const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: 'APESys Email Verification OTP',
-      html: getEmailTemplate(otp), // Use a dedicated template function
-    };
-
-    await transporter.sendMail(mailOptions);
-
-    // 5. Respond to the frontend
-    res.status(200).json({ message: 'OTP sent successfully', success: true });
-
-  } catch (error) {
-    console.error('Error sending email OTP:', error);
-    res.status(500).json({ message: 'Failed to send OTP', error: error.message });
-  }
-}
-
-// 6. Recommended: The "Best" Simple HTML Email Template Function
-// Use a service like Mailchimp or SendGrid for complex/professional templates.
 const getEmailTemplate = (otp) => {
   return `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #ddd; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
@@ -89,3 +41,62 @@ const getEmailTemplate = (otp) => {
     </div>
   `;
 };
+
+export default async function handler(req, res) {
+    // -----------------------------------------------------
+    // 🌟 CORS FIX: Allow access from your frontend domain
+    // -----------------------------------------------------
+    // Replace '*' with your actual deployed frontend URL (e.g., 'https://my-frontend.com') 
+    // for maximum security. Using '*' for testing initially is okay.
+    res.setHeader('Access-Control-Allow-Origin', '*'); 
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Handle pre-flight request
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    // -----------------------------------------------------
+
+    if (req.method !== 'POST') {
+        return res.status(405).json({ message: 'Method Not Allowed' });
+    }
+
+    const { email } = req.body; 
+
+    if (!email) {
+        console.error('Email field is missing from request body.');
+        return res.status(400).json({ message: 'Email is required' });
+    }
+
+    try {
+        const otp = generateOtp();
+        const firestore = firebase.firestore();
+        const now = new Date();
+        const expirationTime = new Date(now.getTime() + 10 * 60000); // 10 minutes expiry
+
+        // 3. Store OTP securely in Firestore with an expiration time
+        await firestore.collection('emailOtps').doc(email).set({
+            otp: otp,
+            createdAt: now,
+            expiresAt: expirationTime,
+        });
+
+        // 4. Send Email
+        const mailOptions = {
+            from: EMAIL_USER, // Using the defined sender email
+            to: email,
+            subject: 'APESys Email Verification OTP',
+            html: getEmailTemplate(otp), 
+        };
+
+        await transporter.sendMail(mailOptions);
+
+        // 5. Respond to the frontend
+        res.status(200).json({ message: 'OTP sent successfully', success: true });
+
+    } catch (error) {
+        console.error('Error sending email OTP:', error);
+        res.status(500).json({ message: 'Failed to send OTP. Check API logs.', error: error.message });
+    }
+}
