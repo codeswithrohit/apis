@@ -15,6 +15,12 @@ export default async function handler(req, res) {
   }
 
   try {
+    console.log('Request body keys:', Object.keys(req.body));
+    console.log('Missing expected fields:', 
+      ['Name', 'roomType', 'roomprice', 'location', 'email', 'name', 'checkInDate', 'orderId', 'paymentAmount', 'payAtCheckIn', 'total', 'phoneNumber', 'address']
+        .filter(key => !req.body.hasOwnProperty(key))
+    );
+    
     const {
       Name,
       roomType,
@@ -23,6 +29,7 @@ export default async function handler(req, res) {
       email,
       name,
       checkInDate,
+      checkOutDate,
       orderId,
       paymentAmount,
       payAtCheckIn,
@@ -136,6 +143,12 @@ export default async function handler(req, res) {
               <span class="label">Check-in Date:</span>
               <span class="value">${checkInDate}</span>
             </div>
+                ${checkOutDate ? `
+            <div class="detail-row">
+              <span class="label">Check-out Date:</span>
+              <span class="value">${checkOutDate}</span>
+            </div>
+            ` : ''}
             <div class="detail-row">
               <span class="label">Room Price:</span>
               <span class="value">₹${roomprice}</span>
